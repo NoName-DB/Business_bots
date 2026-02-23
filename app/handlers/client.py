@@ -74,8 +74,8 @@ async def cmd_reviews_button(message: Message):
     if recent:
         text = 'Последние отзывы:\n'
         for r in recent:
-            rating = '⭐' * int(r.get('rating') or 0)
-            txt = (r.get('text') or '').strip()
+            rating = '⭐' * int(r['rating'] or 0)
+            txt = (r['text'] or '').strip()
             text += f"{rating} — {txt}\n"
         await message.answer(text)
     else:
@@ -84,7 +84,7 @@ async def cmd_reviews_button(message: Message):
     # Check if user has any completed bookings to allow leaving a review
     user = await get_or_create_user(message.from_user.id)
     all_bookings = await list_bookings()
-    completed = [b for b in all_bookings if b.get('user_id') == user['id'] and b.get('status') == 'completed']
+    completed = [b for b in all_bookings if b['user_id'] == user['id'] and b['status'] == 'completed']
     if completed:
         kb_rows = [[InlineKeyboardButton(text='Оставить отзыв', callback_data='start_leave_review')]]
         kb = InlineKeyboardMarkup(inline_keyboard=kb_rows)
@@ -97,7 +97,7 @@ async def cmd_reviews_button(message: Message):
 async def cb_start_leave_review(query: CallbackQuery):
     user = await get_or_create_user(query.from_user.id)
     all_bookings = await list_bookings()
-    completed = [b for b in all_bookings if b.get('user_id') == user['id'] and b.get('status') == 'completed']
+    completed = [b for b in all_bookings if b['user_id'] == user['id'] and b['status'] == 'completed']
     if not completed:
         await query.answer('У вас нет завершённых записей для отзыва', show_alert=True)
         return
@@ -106,20 +106,20 @@ async def cb_start_leave_review(query: CallbackQuery):
         svc = None
         mstr = None
         try:
-            if b.get('service_id'):
-                svc = await get_service(b.get('service_id'))
-            if b.get('master_id'):
-                mstr = await get_master(b.get('master_id'))
+            if b['service_id']:
+                svc = await get_service(b['service_id'])
+            if b['master_id']:
+                mstr = await get_master(b['master_id'])
         except Exception:
             pass
-        title = f"Запись {b.get('date')} {b.get('time')}"
+        title = f"Запись {b['date']} {b['time']}"
         if svc:
-            title += f" — {svc.get('name')}"
+            title += f" — {svc['name']}"
         if mstr:
-            title += f" ({mstr.get('name')})"
+            title += f" ({mstr['name']})"
         # rating buttons
-        row1 = [InlineKeyboardButton(text=str(i), callback_data=f'review:rating:{i}:booking:{b.get("id")}') for i in range(1,6)]
-        row2 = [InlineKeyboardButton(text='Добавить комментарий', callback_data=f'review:text:booking:{b.get("id")}')]
+        row1 = [InlineKeyboardButton(text=str(i), callback_data=f'review:rating:{i}:booking:{b["id"]}') for i in range(1,6)]
+        row2 = [InlineKeyboardButton(text='Добавить комментарий', callback_data=f'review:text:booking:{b["id"]}')]
         kb = InlineKeyboardMarkup(inline_keyboard=[row1, row2])
         try:
             await query.message.answer(title, reply_markup=kb)
