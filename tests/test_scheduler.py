@@ -10,7 +10,9 @@ def test_generate_slots_and_exception(temp_db):
         sid = await create_service('Short', 'desc', 10.0, 30)
         wd = date.today().weekday()
         await set_schedule(mid, wd, '09:00', '11:00', 30)
-        d = date.today().isoformat()
+        # Find next date with same weekday, at least tomorrow
+        d = date.today() + timedelta(days=7)  # Next week same day
+        d = d.isoformat()
         slots = await generate_slots(mid, d, 30)
         assert '09:00' in slots
         assert '09:30' in slots

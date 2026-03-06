@@ -21,6 +21,24 @@ class BookingStates(StatesGroup):
     PHONE = State()
     CONFIRM = State()
 
+def create_time_keyboard(slots, page, per_page=9):
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    start = page * per_page
+    end = start + per_page
+    current_slots = slots[start:end]
+    rows = []
+    for i in range(0, len(current_slots), 3):
+        row = [InlineKeyboardButton(text=t, callback_data=f'book:time:select:{t}') for t in current_slots[i:i+3]]
+        rows.append(row)
+    # Navigation
+    nav_row = []
+    if page > 0:
+        nav_row.append(InlineKeyboardButton(text='⬅️ Previous', callback_data=f'book:time:page:{page-1}'))
+    if end < len(slots):
+        nav_row.append(InlineKeyboardButton(text='Next ➡️', callback_data=f'book:time:page:{page+1}'))
+    if nav_row:
+        rows.append(nav_row)
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 async def _set_state(ctx: FSMContext, state_obj: State):
     """Set FSM state in a way compatible with real FSMContext and the test FakeState.
@@ -321,11 +339,8 @@ async def cb_master_choose(query: CallbackQuery, state: FSMContext):
         await query.message.answer('😔 На этот день нет доступных слотов для этого мастера. Хотите отправить ручную заявку?', reply_markup=kb)
         await query.answer("")
         return
-    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-    rows = []
-    for t in slots:
-        rows.append([InlineKeyboardButton(text=t, callback_data=f'book:time:{t}')])
-    kb = InlineKeyboardMarkup(inline_keyboard=rows)
+    kb = create_time_keyboard(slots, 0)
+    await state.update_data(slots=slots, current_page=0)
     await query.message.answer(f'Доступные слоты для мастера { (await get_master(mid)) ["name"] } на {date_s}:', reply_markup=kb)
     await _set_state(state, BookingStates.TIME)
     await query.answer("")
@@ -522,23 +537,30 @@ async def process_date(message: Message, state: FSMContext):
             pass
         await message.answer('К сожалению, у выбранного мастера нет слотов на этот день. Попробуйте другую дату или мастера.')
         return
-    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-    buttons = []
-    for t in slots:
-        buttons.append([InlineKeyboardButton(text=t, callback_data=f'book:time:{t}')])
-    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
+    kb = create_time_keyboard(slots, 0)
+    await state.update_data(slots=slots, current_page=0)
     await message.answer('Выберите время:', reply_markup=kb)
     await _set_state(state, BookingStates.TIME)
 
-@router.callback_query(lambda q: q.data and q.data.startswith('book:time:'))
+@router.callback_query(lambda q: q.data and (q.data.startswith('book:time:select:') or q.data.startswith('book:time:page:')))
 async def cb_select_time(query: CallbackQuery, state: FSMContext):
-    # Parse time: book:time:11:00 → '11:00'
     parts = query.data.split(':')
-    time_s = ':'.join(parts[-2:])  # Join last 2 parts (hour and minute)
-    await state.update_data(time=time_s)
-    await query.message.answer('👤 Введите ваше имя:')
-    await _set_state(state, BookingStates.NAME)
-    await query.answer("")
+    if parts[2] == 'select':
+        # book:time:select:11:00
+        time_s = ':'.join(parts[3:])
+        await state.update_data(time=time_s)
+        await query.message.answer('👤 Введите ваше имя:')
+        await _set_state(state, BookingStates.NAME)
+        await query.answer("")
+    elif parts[2] == 'page':
+        # book:time:page:1
+        page = int(parts[3])
+        data = await state.get_data()
+        slots = data.get('slots', [])
+        kb = create_time_keyboard(slots, page)
+        await state.update_data(current_page=page)
+        await query.message.edit_reply_markup(reply_markup=kb)
+        await query.answer("")
 
 @router.message(StateFilter(BookingStates.TIME))
 async def process_time(message: Message, state: FSMContext):

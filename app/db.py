@@ -44,6 +44,12 @@ async def init_db():
 
         await db.commit()
 
+        # Clean up old bookings
+        from datetime import datetime
+        today = datetime.now().date().isoformat()
+        await db.execute('DELETE FROM bookings WHERE date < ? AND status != "scheduled"', (today,))
+        await db.commit()
+
 @asynccontextmanager
 async def get_db():
     conn = await aiosqlite.connect(_db_path())
