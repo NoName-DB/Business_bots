@@ -5,6 +5,9 @@ import os
 from app.repo import create_master, create_service, list_bookings, set_master_schedule, delete_master, delete_service, update_master, update_service, get_master, get_service, set_booking_status, get_booking, get_user_by_id, list_masters, list_services
 from app.utils import get_args_from_message as get_args
 from app.scheduler import add_exception, list_exceptions
+# cancellation helpers
+from app.auto_complete import cancel_auto_complete
+from app.reminders import cancel_reminders
 from app.keyboards import admin_menu_kb, settings_kb, main_menu_kb
 
 router = Router()
@@ -322,6 +325,38 @@ async def cmd_complete_booking(message: Message):
         await message.answer('✅ Отлично! Клиенту отправлен запрос на отзыв. 📝')
     except Exception as e:
         await message.answer('❌ Ошибка при отправке сообщения клиенту: ' + str(e))
+
+@router.message(Command('cancel_booking'))
+async def cmd_cancel_booking(message: Message):
+    # Admin command to mark a booking as cancelled (avoids manual DB edits).
+    if not is_admin(message.from_user.id):
+        await message.answer('🚫 Доступ запрещён. Только для администраторов.')
+        return
+    args = get_args(message)
+    if not args:
+        await message.answer('Использование: /cancel_booking booking_id')
+        return
+    try:
+        bid = int(args.strip())
+    except Exception:
+        await message.answer('Неверный booking_id. Укажите число, например: 123')
+        return
+    await set_booking_status(bid, 'cancelled')
+    # cancel any scheduled tasks for this booking
+    try:
+        cancel_auto_complete(bid)
+    except Exception:
+        pass
+    try:
+        cancel_reminders(bid)
+    except Exception:
+        pass
+    b = await get_booking(bid)
+    if not b:
+        await message.answer('❌ Бронирование не найдено. Проверьте ID.')
+        return
+    await message.answer('✅ Бронирование отменено.')
+
 
 @router.message(Command('export_bookings'))
 async def cmd_export_bookings(message: Message):

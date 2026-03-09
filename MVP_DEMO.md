@@ -33,6 +33,7 @@
    - `/set_schedule master_id|weekday(0-6)|start|end|interval_min` — расписание
    - `/list_bookings` — просмотр записей
    - `/complete_booking booking_id` — завершить запись и запросить отзыв
+   - `/cancel_booking booking_id` — отменить существующую запись (бот удалит её при старте и очистит таймеры)
    - `/list_reviews` — все отзывы
    - `/avg_rating master|service|id` — средний рейтинг
 

@@ -127,3 +127,24 @@ def test_admin_export_sends_csv(temp_db):
         text = sent['data'].decode('utf-8') if isinstance(sent['data'], (bytes, bytearray)) else str(sent['data'])
         assert 'date' in text and 'service_id' in text
     __import__('asyncio').run(_run())
+
+
+def test_admin_cancel_booking(temp_db):
+    async def _run():
+        admin_handlers.ADMIN_IDS = [ADMIN_ID]
+        mid = await create_master('Canceller', 'bio', 'contact')
+        sid = await create_service('S2', 'desc', 7.0, 15)
+        user = await get_or_create_user(123123123, 'U2', '+37060001122')
+        # create a booking and determine its id
+        await create_booking(user['id'], sid, mid, '2026-02-02', '10:00', user['name'], user['phone'])
+        from app.repo import list_bookings
+        rows = await list_bookings()
+        assert rows, 'expected booking created'
+        bid = rows[0]['id']
+        msg = FakeMessage(ADMIN_ID, ADMIN_ID, args=str(bid))
+        await admin_handlers.cmd_cancel_booking(msg)
+        from app.repo import get_booking
+        b = await get_booking(bid)
+        assert b is not None and b['status'] == 'cancelled'
+        assert 'отмен' in msg.replies[-1]['text']
+    __import__('asyncio').run(_run())

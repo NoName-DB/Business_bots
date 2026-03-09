@@ -2,13 +2,13 @@ from aiogram import Router
 from aiogram.types import CallbackQuery, Message
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
-from aiogram.filters import StateFilter
-from app.repo import get_master, get_or_create_user, create_booking, list_masters, SlotTaken, DoubleBooking, get_service, average_rating_for_master
-from app.utils import valid_phone, format_rating
+from aiogram.filters import StateFilter, Command
+from app.repo import get_master, get_or_create_user, create_booking, list_masters, SlotTaken, DoubleBooking, get_service, average_rating_for_master, get_booking, set_booking_status
+from app.utils import valid_phone, format_rating, get_args_from_message as get_args
 
 # Для автозавершения
-from app.auto_complete import schedule_auto_complete
-from app.reminders import schedule_reminders
+from app.auto_complete import schedule_auto_complete, cancel_auto_complete
+from app.reminders import schedule_reminders, cancel_reminders
 
 router = Router()
 
@@ -685,3 +685,32 @@ async def cb_cancel(query: CallbackQuery, state: FSMContext):
     await query.message.answer('❌ Запись отменена.')
     await state.clear()
     await query.answer()
+
+
+@router.message(Command('cancel_booking'))
+async def cmd_user_cancel_booking(message: Message):
+    """Allow user to cancel their own booking by id."""
+    args = get_args(message)
+    if not args:
+        await message.answer('Использование: /cancel_booking booking_id')
+        return
+    try:
+        bid = int(args.strip())
+    except Exception:
+        await message.answer('Неверный booking_id. Укажите число, например: 123')
+        return
+    b = await get_booking(bid)
+    if not b or b['user_id'] != message.from_user.id:
+        await message.answer('❌ Бронирование не найдено или вы не имеете прав для его отмены.')
+        return
+    await set_booking_status(bid, 'cancelled')
+    # cancel any scheduled tasks
+    try:
+        cancel_auto_complete(bid)
+    except Exception:
+        pass
+    try:
+        cancel_reminders(bid)
+    except Exception:
+        pass
+    await message.answer('✅ Ваша запись отменена.')

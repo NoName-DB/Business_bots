@@ -30,6 +30,11 @@ All notable changes to this project will be documented in this file.
 - tests: Add end-to-end test verifying UI shows "❌ занято" for fully booked masters (tests/test_busy_master_display.py). ✅
 - tests: Add manual request flow tests and stabilize booking-related tests (tests/test_booking_manual_request.py).
 - feature: Add auto-review request after booking completion — admin command `/complete_booking` marks booking as completed and sends client a rating prompt (1-5 stars + optional comment). Reviews are saved to DB and admins are notified. Includes unit and E2E tests (tests/test_handlers_reviews_auto_request.py).
+- feature: Support cancelling bookings without touching the database directly. Added:
+  * admin command `/cancel_booking <id>` which marks booking cancelled and clears scheduled tasks
+  * user command `/cancel_booking <id>` allowing clients to cancel their own bookings
+  * corresponding unit and e2e tests (tests/test_booking_cancel.py, updated test_admin_e2e.py)
+  * docs updated accordingly
 - ux: Improve user experience with friendlier messages, emojis, examples, and clearer prompts across booking, review, and admin flows. Enhanced error messages and confirmations.
 - feature: Stage 3 — display average ratings for masters and services in client UI. Shows master rating next to name and service average + count in service card. Tests added.
 - feature: Admin CSV export: `/export_bookings` and `/export_reviews` commands. Exports `bookings` (id, date, time, service, master, client_name, phone, status) and `reviews` (booking_id, rating, comment, created_at). Implemented repo SQL methods, `app/export.py`, handlers and tests.
